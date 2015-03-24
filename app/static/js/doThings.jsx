@@ -1,3 +1,16 @@
+var userID = null;
+// REPLACE THE ABOVE WITH CODE FOR SPLITTING THE document.cookie BY SEMICOLON, FINDING THE VALUE FOR user_id IF THERE IS ONE, etc.
+
+function sendTask(taskObj) {
+
+  $.ajax( "api/{{ user_id }}/newTask", {
+    complete: null,
+    data: taskObj,
+    dataType: "json"
+  });
+
+}
+
 var DoThings = React.createClass({
   getInitialState: function() {
     return {

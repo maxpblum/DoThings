@@ -1,18 +1,65 @@
-var userID = null;
-// REPLACE THE ABOVE WITH CODE FOR SPLITTING THE document.cookie BY SEMICOLON, FINDING THE VALUE FOR user_id IF THERE IS ONE, etc.
+function getUserID() {
 
-function sendTask(taskObj) {
+  var cookiePairs = document.cookie.split(";");
 
-  $.ajax( "api/{{ user_id }}/newTask", {
-    complete: null,
+  for (var i = 0; i < cookiePairs.length; i++) {
+
+    var pairSplit = cookiePairs[i].split("=");
+    if (pairSplit[0] === "user_id") {
+      return pairSplit[1];
+    }
+
+  }
+
+  return null;
+}
+
+function sendTask(taskObj, tasksCallback) {
+
+  $.ajax( "api/" + userID + "/newTask", {
+    complete: function(response) {
+      tasksCallback(response.responseJSON.tasks);
+    },
     data: taskObj,
-    dataType: "json"
+    dataType: "json",
+    method: "POST"
+  });
+
+}
+
+function getTasks(tasksCallback) {
+
+  $.ajax( "api/" + userID + "/tasks", {
+    complete: function(response) {
+      tasksCallback(response.responseJSON.tasks);
+    },
+    dataType: "json",
+    method: "GET"
+  } );
+
+}
+
+function setDone(taskIndex, boolValue, tasksCallback) {
+
+  $.ajax( "api/" + userID + "/tasks/" + taskIndex + "/doneValue", {
+    complete: function(response) {
+      tasksCallback(response.responseJSON.tasks);
+    },
+    data: { done: boolValue },
+    dataType: "json",
+    method: "PUT"
   });
 
 }
 
 var DoThings = React.createClass({
+  tasksCallback: function(tasks) {
+    this.setState({ tasks: tasks });
+  },
   getInitialState: function() {
+
+    getTasks(this.tasksCallback);
+
     return {
       nextTaskID: 4,
       tasks: [
@@ -20,10 +67,20 @@ var DoThings = React.createClass({
         { id: 1, text: 'Get a haircut', done: true },
         { id: 2, text: 'Pay electricity bill', done: true },
         { id: 3, text: 'Check gym hours', done: false }
-      ]
+      ],
+      newTaskInput: ''
     }
   },
   render: function() {
+
+    var handleChange = function(event) {
+      this.setState({ newTaskInput: event.target.value });
+    }.bind(this);
+
+    var submitInput = function() {
+      addTask(this.state.newTaskInput);
+      this.setState({ newTaskInput: '' });
+    }.bind(this);
 
     var taskSwitcher = function(index1, index2) {
       return function() { 
@@ -38,11 +95,12 @@ var DoThings = React.createClass({
       }.bind(this);
     }.bind(this);
 
-    var doneMarker = function(index) {
+    var checkboxToggler = function(index) {
       return function() {
 
         var tasks = this.state.tasks.slice();
         tasks[index].done = !tasks[index].done;
+        setDone(index, tasks[index].done, this.tasksCallback);
         this.setState({ tasks: tasks });
 
       }.bind(this);
@@ -58,9 +116,10 @@ var DoThings = React.createClass({
       };
 
       tasks.push(newTask);
+      sendTask(newTask, this.tasksCallback);
 
       this.setState({
-        nextTaskID: newTask + 1,
+        nextTaskID: newTask.id + 1,
         tasks: tasks
       });
 
@@ -68,8 +127,8 @@ var DoThings = React.createClass({
 
     return (
       <div>
-        <DoThingsForm addTask={addTask} value=""/>
-        <List tasks={this.state.tasks} taskSwitcher={taskSwitcher} doneMarker={doneMarker} />
+        <DoThingsForm submitInput={submitInput} handleChange={handleChange} value={this.state.newTaskInput} />
+        <List tasks={this.state.tasks} taskSwitcher={taskSwitcher} checkboxToggler={checkboxToggler} />
       </div>
     )
   }
@@ -78,22 +137,13 @@ var DoThings = React.createClass({
 var DoThingsForm = React.createClass({
   render: function() {
 
-    var currentText = this.props.value;
-
-    var handleChange = function(event) {
-      currentText = event.target.value;
-    }
-
-    var submitter = function() {
-      this.props.addTask(currentText);
-    }.bind(this);
-
     return (
       <div>
-        <input defaultValue={this.props.value} onChange={handleChange} />
-        <button onClick = {submitter}>A button!</button>
+        <input value={this.props.value} onChange={this.props.handleChange} />
+        <button onClick={this.props.submitInput}>A button!</button>
       </div>
     )
+
   }
 });
 
@@ -102,7 +152,7 @@ var List = React.createClass({
 
     var listItems = this.props.tasks.map(function(task, index, all) {
 
-      var handleChange = this.props.doneMarker(index);
+      var handleChange = this.props.checkboxToggler(index);
 
       var switchers = {};
 
@@ -129,9 +179,22 @@ var List = React.createClass({
 var ListItem = React.createClass({
   render: function() {
     return (
-      <li className={this.props.done ? "done" : "undone"}><input type="checkbox" defaultChecked={this.props.done} onClick={this.props.handleChange} />{this.props.text}</li>
+      <li className={this.props.done ? "done" : "undone"}><input type="checkbox" checked={this.props.done} onChange={this.props.handleChange} />{this.props.text}</li>
     )
   }
 });
 
-React.render(<DoThings />, document.getElementsByTagName('main')[0]);
+var NoCookieMessage = React.createClass({
+  render: function() {
+    return (
+      <p>Did not find cookie entry. Try clearing cookies and reloading.</p>
+    )
+  }
+});
+
+var userID = getUserID();
+if (userID == null)
+  React.render(<NoCookieMessage />, document.getElementsByTagName('main')[0]);
+else
+  React.render(<DoThings />, document.getElementsByTagName('main')[0]);
+

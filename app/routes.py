@@ -28,17 +28,30 @@ def home():
 @app.route('/api/<id>/tasks', methods=['GET'])
 def get_tasks(id):
   if id == request.cookies.get('user_id'):
-    print "Got this far"
     return jsonify({ 'tasks': data.get_data(id) })
   return "hi"
 
-@app.route('/api/<id>/newTask', methods=['PUT'])
+@app.route('/api/<id>/newTask', methods=['POST'])
 def new_task(id):
   if id == request.cookies.get('user_id'):
-    task_id = request.json.get('id')
-    task_text = request.json.get('text')
+    task_id = request.form.get('id')
+    task_text = request.form.get('text')
     if task_id is not None and task_text is not None:
-      data.add_task({ 'id': task_id, 'text': task_text, 'done': False })
+      data.add_task(id, { 'id': task_id, 'text': task_text, 'done': False })
+    return jsonify({ 'tasks': data.get_data(id) })
+
+@app.route('/api/<id>/tasks/<index>/doneValue', methods=['PUT'])
+def done_value(id, index):
+  if id == request.cookies.get('user_id'):
+    done_value = True if request.form.get('done') == "true" else False
+    data.set_done(id, int(index), done_value)
+    return jsonify({ 'tasks': data.get_data(id) })
+
+@app.route('/api/<id>/tasks/swap', methods=['PUT'])
+def swap_two(id):
+  if id == request.cookies.get('user_id'):
+    index1, index2 = request.form.get('indices')
+    data.swap_two(id, index1, index2)
     return jsonify({ 'tasks': data.get_data(id) })
 
 app.secret_key = 'so secret so very very secret'
